@@ -64,6 +64,8 @@ open class Session {
 
     /// Internal map between `Request`s and any `URLSessionTasks` that may be in flight for them.
     var requestTaskMap = RequestTaskMap()
+    /// Set of currently active `Request`s.
+    var activeRequests: Set<Request> = []
 
     /// Creates a `Session` from a `URLSession` and other parameters.
     ///
@@ -751,11 +753,15 @@ open class Session {
     // MARK: Perform
 
     func perform(_ request: Request) {
-        switch request {
-        case let r as DataRequest: perform(r)
-        case let r as UploadRequest: perform(r)
-        case let r as DownloadRequest: perform(r)
-        default: fatalError("Attempted to perform unsupported Request subclass: \(type(of: request))")
+        rootQueue.async {
+            self.activeRequests.insert(request)
+            
+            switch request {
+            case let r as DataRequest: self.perform(r)
+            case let r as UploadRequest: self.perform(r)
+            case let r as DownloadRequest: self.perform(r)
+            default: fatalError("Attempted to perform unsupported Request subclass: \(type(of: request))")
+            }
         }
     }
 
@@ -902,6 +908,10 @@ open class Session {
 extension Session: RequestDelegate {
     public var sessionConfiguration: URLSessionConfiguration {
         return session.configuration
+    }
+    
+    public func cleanup(after request: Request) {
+        activeRequests.remove(request)
     }
 
     public func retryResult(for request: Request, dueTo error: Error, completion: @escaping (RetryResult) -> Void) {

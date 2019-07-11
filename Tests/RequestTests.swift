@@ -26,7 +26,7 @@ import Alamofire
 import Foundation
 import XCTest
 
-class RequestResponseTestCase: BaseTestCase {
+final class RequestResponseTestCase: BaseTestCase {
     func testRequestResponse() {
         // Given
         let urlString = "https://httpbin.org/get"
