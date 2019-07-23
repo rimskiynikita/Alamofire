@@ -935,10 +935,6 @@ extension Session: RequestDelegate {
     }
 
     public func cleanup(after request: Request) {
-        // If there's an associated task we need to break the map manually, as the task will never complete at this point.
-        if requestTaskMap[request] != nil {
-            requestTaskMap[request] = nil
-        }
         activeRequests.remove(request)
     }
 
