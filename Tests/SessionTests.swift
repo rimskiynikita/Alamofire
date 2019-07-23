@@ -1544,7 +1544,65 @@ final class SessionTestCase: BaseTestCase {
 // MARK: -
 
 final class SessionCancellationTestCase: BaseTestCase {
-    
+    func testThatAutomaticallyResumedRequestsCanBeMassCancelled() {
+        // Given
+        let session = Session()
+        let request = URLRequest.makeHTTPBinRequest(path: "delay/1")
+        var responses: [DataResponse<Data?>] = []
+        let completion = expectation(description: "all requests should finish")
+        completion.expectedFulfillmentCount = 25
+        let cancellation = expectation(description: "cancel all requests should be called")
+
+        // When
+        for _ in 1...25 {
+            session.request(request).response { (response) in
+                responses.append(response)
+                completion.fulfill()
+            }
+        }
+        session.cancelAllRequests {
+            cancellation.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout)
+
+        // Then
+        XCTAssertTrue(responses.allSatisfy { $0.error?.asAFError?.isExplicitlyCancelledError == true })
+        assert(on: session.rootQueue) {
+            XCTAssertTrue(session.requestTaskMap.isEmpty)
+            XCTAssertTrue(session.activeRequests.isEmpty)
+        }
+    }
+
+    func testThatManuallyResumedRequestsCanBeMassCancelled() {
+        // Given
+        let session = Session(startRequestsImmediately: false)
+        let request = URLRequest.makeHTTPBinRequest(path: "delay/1")
+        var responses: [DataResponse<Data?>] = []
+        let completion = expectation(description: "all requests should finish")
+        completion.expectedFulfillmentCount = 25
+        let cancellation = expectation(description: "cancel all requests should be called")
+
+        // When
+        for _ in 1...25 {
+            session.request(request).response { (response) in
+                responses.append(response)
+                completion.fulfill()
+            }
+        }
+        session.cancelAllRequests {
+            cancellation.fulfill()
+        }
+
+        waitForExpectations(timeout: timeout)
+
+        // Then
+        XCTAssertTrue(responses.allSatisfy { $0.error?.asAFError?.isExplicitlyCancelledError == true })
+        assert(on: session.rootQueue) {
+            XCTAssertTrue(session.requestTaskMap.isEmpty)
+            XCTAssertTrue(session.activeRequests.isEmpty)
+        }
+    }
 }
 
 // MARK: -

@@ -193,9 +193,9 @@ open class Session {
         finishRequestsForDeinit()
         session.invalidateAndCancel()
     }
-    
+
     // MARK: - Cancellation
-    
+
     /// Cancel all active `Request`s, optionally calling a completion handler when complete.
     ///
     /// - Note: This is an asynchronous operation and does not block the creation of future `Request`s. Cancelled
@@ -768,22 +768,26 @@ open class Session {
 
     // MARK: Perform
 
+
+    /// Perform `Request`.
+    ///
+    /// - Note: Called during retry.
+    ///
+    /// - Parameter request: The `Request` to perform.
     func perform(_ request: Request) {
-        rootQueue.async {
-            self.activeRequests.insert(request)
-            
-            switch request {
-            case let r as DataRequest: self.perform(r)
-            case let r as UploadRequest: self.perform(r)
-            case let r as DownloadRequest: self.perform(r)
-            default: fatalError("Attempted to perform unsupported Request subclass: \(type(of: request))")
-            }
+        switch request {
+        case let r as DataRequest: self.perform(r)
+        case let r as UploadRequest: self.perform(r)
+        case let r as DownloadRequest: self.perform(r)
+        default: fatalError("Attempted to perform unsupported Request subclass: \(type(of: request))")
         }
     }
 
     func perform(_ request: DataRequest) {
         requestQueue.async {
             guard !request.isCancelled else { return }
+
+            self.activeRequests.insert(request)
 
             self.performSetupOperations(for: request, convertible: request.convertible)
         }
@@ -792,6 +796,8 @@ open class Session {
     func perform(_ request: UploadRequest) {
         requestQueue.async {
             guard !request.isCancelled else { return }
+
+            self.activeRequests.insert(request)
 
             do {
                 let uploadable = try request.upload.createUploadable()
@@ -807,6 +813,8 @@ open class Session {
     func perform(_ request: DownloadRequest) {
         requestQueue.async {
             guard !request.isCancelled else { return }
+
+            self.activeRequests.insert(request)
 
             switch request.downloadable {
             case let .request(convertible):
@@ -925,8 +933,12 @@ extension Session: RequestDelegate {
     public var sessionConfiguration: URLSessionConfiguration {
         return session.configuration
     }
-    
+
     public func cleanup(after request: Request) {
+        // If there's an associated task we need to break the map manually, as the task will never complete at this point.
+        if requestTaskMap[request] != nil {
+            requestTaskMap[request] = nil
+        }
         activeRequests.remove(request)
     }
 
